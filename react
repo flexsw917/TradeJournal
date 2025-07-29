@@ -1,498 +1,460 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, TrendingDown, BarChart3, DollarSign, Target, Activity, PieChart } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Activity, Target, Award, AlertCircle, ChevronDown, Plus, Settings, Eye, EyeOff } from 'lucide-react';
 
-const TastyTradeJournal = () => {
+const TradingJournal = () => {
   const [trades, setTrades] = useState([]);
-  const [currentView, setCurrentView] = useState('dollars');
-  const [selectedPeriod, setSelectedPeriod] = useState('all');
-  const [newTrade, setNewTrade] = useState({
-    symbol: '',
-    type: 'long',
-    entry: '',
-    exit: '',
-    quantity: '',
-    date: new Date().toISOString().split('T')[0],
-    stopLoss: '',
-    profitTarget: '',
-    notes: ''
-  });
+  const [viewMode, setViewMode] = useState('dollars');
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [dateFilter, setDateFilter] = useState({ start: null, end: null });
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Sample data - in real app, this would come from tastytrade API
+  const sampleTrades = [
+    { id: 1, date: '2025-01-15', symbol: 'AAPL', quantity: 100, entryPrice: 150, exitPrice: 155, pnl: 500, type: 'LONG', holdTime: '2h 30m', commission: 2.50 },
+    { id: 2, date: '2025-01-15', symbol: 'TSLA', quantity: 50, entryPrice: 200, exitPrice: 195, pnl: -250, type: 'SHORT', holdTime: '1h 45m', commission: 2.50 },
+    { id: 3, date: '2025-01-16', symbol: 'SPY', quantity: 200, entryPrice: 400, exitPrice: 402, pnl: 400, type: 'LONG', holdTime: '3h 15m', commission: 2.50 },
+    { id: 4, date: '2025-01-17', symbol: 'NVDA', quantity: 75, entryPrice: 300, exitPrice: 305, pnl: 375, type: 'LONG', holdTime: '4h 00m', commission: 2.50 },
+    { id: 5, date: '2025-01-17', symbol: 'META', quantity: 100, entryPrice: 250, exitPrice: 248, pnl: -200, type: 'SHORT', holdTime: '1h 30m', commission: 2.50 },
+  ];
 
-  // Sample initial data to demonstrate the interface
   useEffect(() => {
-    const sampleTrades = [
-      {
-        id: 1,
-        symbol: 'AAPL',
-        type: 'long',
-        entry: 175.50,
-        exit: 182.30,
-        quantity: 100,
-        date: '2024-07-15',
-        pnl: 680,
-        commission: 2.00,
-        netPnl: 678,
-        holdTime: '2d 4h',
-        tags: ['momentum', 'earnings'],
-        status: 'closed'
-      },
-      {
-        id: 2,
-        symbol: 'TSLA',
-        type: 'short',
-        entry: 245.80,
-        exit: 239.20,
-        quantity: 50,
-        date: '2024-07-18',
-        pnl: 330,
-        commission: 1.50,
-        netPnl: 328.50,
-        holdTime: '1d 6h',
-        tags: ['reversal'],
-        status: 'closed'
-      },
-      {
-        id: 3,
-        symbol: 'SPY',
-        type: 'long',
-        entry: 445.20,
-        exit: 441.90,
-        quantity: 200,
-        date: '2024-07-20',
-        pnl: -660,
-        commission: 3.00,
-        netPnl: -663,
-        holdTime: '4h 30m',
-        tags: ['index', 'scalp'],
-        status: 'closed'
-      }
-    ];
     setTrades(sampleTrades);
   }, []);
 
+  // Calculate statistics
   const calculateStats = () => {
-    if (trades.length === 0) return {};
+    const netPnL = trades.reduce((sum, trade) => sum + trade.pnl - trade.commission, 0);
+    const winningTrades = trades.filter(trade => trade.pnl > 0);
+    const losingTrades = trades.filter(trade => trade.pnl < 0);
+    const winRate = trades.length > 0 ? (winningTrades.length / trades.length * 100) : 0;
+    const avgWin = winningTrades.length > 0 ? winningTrades.reduce((sum, trade) => sum + trade.pnl, 0) / winningTrades.length : 0;
+    const avgLoss = losingTrades.length > 0 ? losingTrades.reduce((sum, trade) => sum + trade.pnl, 0) / losingTrades.length : 0;
+    const expectancy = trades.length > 0 ? netPnL / trades.length : 0;
     
-    const closedTrades = trades.filter(t => t.status === 'closed');
-    const winningTrades = closedTrades.filter(t => t.netPnl > 0);
-    const losingTrades = closedTrades.filter(t => t.netPnl < 0);
-    const breakEvenTrades = closedTrades.filter(t => t.netPnl === 0);
+    // Calculate daily stats
+    const dailyPnL = {};
+    trades.forEach(trade => {
+      if (!dailyPnL[trade.date]) dailyPnL[trade.date] = 0;
+      dailyPnL[trade.date] += trade.pnl - trade.commission;
+    });
     
-    const totalPnl = closedTrades.reduce((sum, trade) => sum + trade.netPnl, 0);
-    const totalCommissions = closedTrades.reduce((sum, trade) => sum + trade.commission, 0);
-    
-    const avgWin = winningTrades.length > 0 ? 
-      winningTrades.reduce((sum, trade) => sum + trade.netPnl, 0) / winningTrades.length : 0;
-    
-    const avgLoss = losingTrades.length > 0 ? 
-      Math.abs(losingTrades.reduce((sum, trade) => sum + trade.netPnl, 0) / losingTrades.length) : 0;
-    
-    const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
-    
-    const profitFactor = losingTrades.length > 0 ? 
-      Math.abs(winningTrades.reduce((sum, trade) => sum + trade.netPnl, 0) / 
-      losingTrades.reduce((sum, trade) => sum + trade.netPnl, 0)) : 0;
-    
-    const expectancy = closedTrades.length > 0 ? totalPnl / closedTrades.length : 0;
+    const winningDays = Object.values(dailyPnL).filter(pnl => pnl > 0).length;
+    const totalDays = Object.keys(dailyPnL).length;
+    const dayWinRate = totalDays > 0 ? (winningDays / totalDays * 100) : 0;
     
     return {
-      totalPnl,
-      totalCommissions,
-      totalTrades: closedTrades.length,
-      winningTrades: winningTrades.length,
-      losingTrades: losingTrades.length,
-      breakEvenTrades: breakEvenTrades.length,
+      netPnL,
       winRate,
+      dayWinRate,
       avgWin,
       avgLoss,
-      profitFactor,
       expectancy,
-      largestWin: winningTrades.length > 0 ? Math.max(...winningTrades.map(t => t.netPnl)) : 0,
-      largestLoss: losingTrades.length > 0 ? Math.min(...losingTrades.map(t => t.netPnl)) : 0
+      totalTrades: trades.length,
+      winningTrades: winningTrades.length,
+      losingTrades: losingTrades.length,
+      profitFactor: Math.abs(avgWin * winningTrades.length) / Math.abs(avgLoss * losingTrades.length) || 0,
+      maxDrawdown: calculateMaxDrawdown(),
+      currentStreak: calculateCurrentStreak(),
+      accountBalance: 10000 + netPnL
     };
+  };
+
+  const calculateMaxDrawdown = () => {
+    let peak = 0;
+    let maxDrawdown = 0;
+    let runningPnL = 0;
+    
+    trades.forEach(trade => {
+      runningPnL += trade.pnl - trade.commission;
+      if (runningPnL > peak) peak = runningPnL;
+      const drawdown = peak - runningPnL;
+      if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    });
+    
+    return maxDrawdown;
+  };
+
+  const calculateCurrentStreak = () => {
+    let streak = 0;
+    const sortedTrades = [...trades].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    for (let trade of sortedTrades) {
+      if (trade.pnl > 0) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
   };
 
   const stats = calculateStats();
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(amount);
-  };
-
-  const formatPercentage = (value) => {
-    return `${value.toFixed(2)}%`;
-  };
-
-  const addTrade = () => {
-    if (!newTrade.symbol || !newTrade.entry || !newTrade.quantity) return;
+  const formatValue = (value, type = 'currency') => {
+    if (showPrivacy) return '***';
     
-    const trade = {
-      id: Date.now(),
-      ...newTrade,
-      entry: parseFloat(newTrade.entry),
-      exit: newTrade.exit ? parseFloat(newTrade.exit) : null,
-      quantity: parseInt(newTrade.quantity),
-      stopLoss: newTrade.stopLoss ? parseFloat(newTrade.stopLoss) : null,
-      profitTarget: newTrade.profitTarget ? parseFloat(newTrade.profitTarget) : null,
-      status: newTrade.exit ? 'closed' : 'open',
-      commission: 1.50, // Default commission
-      pnl: newTrade.exit ? 
-        (parseFloat(newTrade.exit) - parseFloat(newTrade.entry)) * parseInt(newTrade.quantity) * (newTrade.type === 'short' ? -1 : 1) : 0,
-      netPnl: newTrade.exit ? 
-        ((parseFloat(newTrade.exit) - parseFloat(newTrade.entry)) * parseInt(newTrade.quantity) * (newTrade.type === 'short' ? -1 : 1)) - 1.50 : 0,
-      tags: [],
-      holdTime: newTrade.exit ? '1d 2h' : 'Open' // Simplified for demo
-    };
-    
-    setTrades([...trades, trade]);
-    setNewTrade({
-      symbol: '',
-      type: 'long',
-      entry: '',
-      exit: '',
-      quantity: '',
-      date: new Date().toISOString().split('T')[0],
-      stopLoss: '',
-      profitTarget: '',
-      notes: ''
-    });
+    switch (viewMode) {
+      case 'percentage':
+        return type === 'currency' ? `${(value / 10000 * 100).toFixed(2)}%` : value;
+      case 'r-multiple':
+        return type === 'currency' ? `${(value / 100).toFixed(2)}R` : value;
+      default:
+        return type === 'currency' ? `$${value.toFixed(2)}` : value;
+    }
   };
 
-  const StatCard = ({ title, value, icon: Icon, color = 'blue', subtitle }) => (
-    <div className="bg-white rounded-lg shadow-lg p-6 border-l-4" style={{ borderLeftColor: color }}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+  const StatWidget = ({ title, value, icon: Icon, color = 'blue', trend = null }) => (
+    <div className="bg-white rounded-lg shadow p-4 hover:shadow-lg transition-shadow">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-gray-600 text-sm">{title}</span>
+        <Icon className={`w-5 h-5 text-${color}-500`} />
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+      {trend && (
+        <div className={`text-sm mt-1 ${trend > 0 ? 'text-green-500' : 'text-red-500'}`}>
+          {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}%
         </div>
-        <Icon className="h-8 w-8" style={{ color }} />
+      )}
+    </div>
+  );
+
+  const DashboardView = () => (
+    <div className="space-y-6">
+      {/* View Selector */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Dashboard</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowPrivacy(!showPrivacy)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+          >
+            {showPrivacy ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            Privacy
+          </button>
+          <select
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
+            className="px-4 py-2 bg-gray-100 rounded-lg"
+          >
+            <option value="dollars">Dollars View</option>
+            <option value="percentage">Percentage View</option>
+            <option value="r-multiple">R-Multiple View</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Upper Section Widgets */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatWidget
+          title="Net P&L"
+          value={formatValue(stats.netPnL)}
+          icon={DollarSign}
+          color={stats.netPnL >= 0 ? 'green' : 'red'}
+        />
+        <StatWidget
+          title="Account Balance"
+          value={formatValue(stats.accountBalance)}
+          icon={TrendingUp}
+          color="blue"
+        />
+        <StatWidget
+          title="Trade Win %"
+          value={`${stats.winRate.toFixed(1)}%`}
+          icon={Target}
+          color="green"
+        />
+        <StatWidget
+          title="Day Win %"
+          value={`${stats.dayWinRate.toFixed(1)}%`}
+          icon={Calendar}
+          color="green"
+        />
+        <StatWidget
+          title="Avg Win/Loss"
+          value={`${formatValue(stats.avgWin)} / ${formatValue(stats.avgLoss)}`}
+          icon={BarChart3}
+          color="blue"
+        />
+        <StatWidget
+          title="Trade Expectancy"
+          value={formatValue(stats.expectancy)}
+          icon={Activity}
+          color={stats.expectancy >= 0 ? 'green' : 'red'}
+        />
+        <StatWidget
+          title="Current Streak"
+          value={`${stats.currentStreak} wins`}
+          icon={Award}
+          color="green"
+        />
+        <StatWidget
+          title="Max Drawdown"
+          value={formatValue(stats.maxDrawdown)}
+          icon={AlertCircle}
+          color="red"
+        />
+      </div>
+
+      {/* Lower Section - Charts and Calendar */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Daily P&L Chart */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Daily Net P&L</h3>
+          <div className="h-64 flex items-end justify-between gap-2">
+            {Object.entries(trades.reduce((acc, trade) => {
+              const date = trade.date;
+              if (!acc[date]) acc[date] = 0;
+              acc[date] += trade.pnl - trade.commission;
+              return acc;
+            }, {})).map(([date, pnl]) => {
+              const height = Math.abs(pnl) / 10;
+              return (
+                <div key={date} className="flex-1 flex flex-col items-center">
+                  <div
+                    className={`w-full ${pnl >= 0 ? 'bg-green-500' : 'bg-red-500'} rounded-t`}
+                    style={{ height: `${height}px`, minHeight: '20px' }}
+                  />
+                  <span className="text-xs mt-2 rotate-45">{date.slice(5)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Calendar View */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Trading Calendar</h3>
+          <div className="grid grid-cols-7 gap-2">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
+              <div key={day} className="text-center text-sm font-medium text-gray-600">
+                {day}
+              </div>
+            ))}
+            {/* Simplified calendar - in real app, would show full month */}
+            {Array.from({ length: 31 }, (_, i) => {
+              const day = i + 1;
+              const dateStr = `2025-01-${day.toString().padStart(2, '0')}`;
+              const dayPnL = trades
+                .filter(t => t.date === dateStr)
+                .reduce((sum, t) => sum + t.pnl - t.commission, 0);
+              
+              return (
+                <div
+                  key={i}
+                  className={`
+                    aspect-square flex items-center justify-center rounded text-sm
+                    ${dayPnL > 0 ? 'bg-green-100 text-green-800' : 
+                      dayPnL < 0 ? 'bg-red-100 text-red-800' : 
+                      'bg-gray-50 text-gray-400'}
+                  `}
+                >
+                  {day}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Open Positions / Recent Trades */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Recent Trades</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2">Date</th>
+                <th className="text-left py-2">Symbol</th>
+                <th className="text-left py-2">Type</th>
+                <th className="text-left py-2">Quantity</th>
+                <th className="text-left py-2">Entry</th>
+                <th className="text-left py-2">Exit</th>
+                <th className="text-left py-2">P&L</th>
+                <th className="text-left py-2">Hold Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trades.slice(0, 5).map(trade => (
+                <tr key={trade.id} className="border-b hover:bg-gray-50">
+                  <td className="py-2">{trade.date}</td>
+                  <td className="py-2 font-medium">{trade.symbol}</td>
+                  <td className="py-2">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      trade.type === 'LONG' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {trade.type}
+                    </span>
+                  </td>
+                  <td className="py-2">{trade.quantity}</td>
+                  <td className="py-2">${trade.entryPrice}</td>
+                  <td className="py-2">${trade.exitPrice}</td>
+                  <td className={`py-2 font-medium ${trade.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatValue(trade.pnl)}
+                  </td>
+                  <td className="py-2 text-gray-600">{trade.holdTime}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 
-  const CircularProgress = ({ percentage, color = '#10B981' }) => {
-    const radius = 45;
-    const strokeWidth = 8;
-    const normalizedRadius = radius - strokeWidth * 2;
-    const circumference = normalizedRadius * 2 * Math.PI;
-    const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
-    
-    return (
-      <div className="relative w-32 h-32">
-        <svg
-          height={radius * 2}
-          width={radius * 2}
-          className="transform -rotate-90"
-        >
-          <circle
-            stroke="#E5E7EB"
-            fill="transparent"
-            strokeWidth={strokeWidth}
-            r={normalizedRadius}
-            cx={radius}
-            cy={radius}
-          />
-          <circle
-            stroke={color}
-            fill="transparent"
-            strokeWidth={strokeWidth}
-            strokeDasharray={strokeDasharray}
-            strokeLinecap="round"
-            r={normalizedRadius}
-            cx={radius}
-            cy={radius}
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xl font-bold">{percentage.toFixed(1)}%</span>
+  const ReportsView = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold">Reports & Statistics</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Performance Metrics */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Total P&L</span>
+              <span className="font-medium">{formatValue(stats.netPnL)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Total Trades</span>
+              <span className="font-medium">{stats.totalTrades}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Winning Trades</span>
+              <span className="font-medium text-green-600">{stats.winningTrades}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Losing Trades</span>
+              <span className="font-medium text-red-600">{stats.losingTrades}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Profit Factor</span>
+              <span className="font-medium">{stats.profitFactor.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Average Win</span>
+              <span className="font-medium text-green-600">{formatValue(stats.avgWin)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Average Loss</span>
+              <span className="font-medium text-red-600">{formatValue(stats.avgLoss)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Expectancy</span>
+              <span className="font-medium">{formatValue(stats.expectancy)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Risk Metrics */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Risk Metrics</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Max Drawdown</span>
+              <span className="font-medium text-red-600">{formatValue(stats.maxDrawdown)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Win Rate</span>
+              <span className="font-medium">{stats.winRate.toFixed(1)}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Day Win Rate</span>
+              <span className="font-medium">{stats.dayWinRate.toFixed(1)}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Current Win Streak</span>
+              <span className="font-medium text-green-600">{stats.currentStreak}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Risk/Reward Ratio</span>
+              <span className="font-medium">{Math.abs(stats.avgWin / stats.avgLoss).toFixed(2)}</span>
+            </div>
+          </div>
         </div>
       </div>
-    );
-  };
+
+      {/* Detailed Statistics */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Detailed Statistics</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-gray-600 text-sm">Largest Profit</p>
+            <p className="font-medium text-green-600">
+              {formatValue(Math.max(...trades.map(t => t.pnl)))}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-600 text-sm">Largest Loss</p>
+            <p className="font-medium text-red-600">
+              {formatValue(Math.min(...trades.map(t => t.pnl)))}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-600 text-sm">Total Commission</p>
+            <p className="font-medium">
+              {formatValue(trades.reduce((sum, t) => sum + t.commission, 0))}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-600 text-sm">Avg Hold Time</p>
+            <p className="font-medium">2h 45m</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">TastyTrade Journal</h1>
-              <div className="flex space-x-2">
+              <h1 className="text-2xl font-bold text-gray-900">TradingJournal</h1>
+              <nav className="flex space-x-4">
                 <button
-                  onClick={() => setCurrentView('dollars')}
-                  className={`px-3 py-1 rounded text-sm ${currentView === 'dollars' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    activeTab === 'dashboard' 
+                      ? 'bg-gray-900 text-white' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
                 >
-                  Dollars
+                  Dashboard
                 </button>
                 <button
-                  onClick={() => setCurrentView('percentage')}
-                  className={`px-3 py-1 rounded text-sm ${currentView === 'percentage' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                  onClick={() => setActiveTab('reports')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    activeTab === 'reports' 
+                      ? 'bg-gray-900 text-white' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
                 >
-                  Percentage
+                  Reports
                 </button>
-              </div>
+              </nav>
             </div>
-            <div className="text-sm text-gray-600">
-              Good afternoon! Last import: Today at 10:42 PM
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Upper Section - Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Net P&L"
-            value={formatCurrency(stats.totalPnl || 0)}
-            icon={DollarSign}
-            color="#10B981"
-            subtitle={`${stats.totalTrades || 0} trades`}
-          />
-          <StatCard
-            title="Trade Win %"
-            value={formatPercentage(stats.winRate || 0)}
-            icon={TrendingUp}
-            color="#3B82F6"
-            subtitle={`${stats.winningTrades || 0} winning trades`}
-          />
-          <StatCard
-            title="Avg Win/Loss"
-            value={`${formatCurrency(stats.avgWin || 0)} / ${formatCurrency(stats.avgLoss || 0)}`}
-            icon={BarChart3}
-            color="#8B5CF6"
-            subtitle="Average trade outcome"
-          />
-          <StatCard
-            title="Profit Factor"
-            value={(stats.profitFactor || 0).toFixed(2)}
-            icon={Target}
-            color="#F59E0B"
-            subtitle="Total wins / Total losses"
-          />
-        </div>
-
-        {/* Win Rate Visual */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Trade Win Rate</h3>
-            <div className="flex justify-center">
-              <CircularProgress percentage={stats.winRate || 0} color="#10B981" />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Trade Expectancy</h3>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900 mb-2">
-                {formatCurrency(stats.expectancy || 0)}
-              </div>
-              <p className="text-sm text-gray-600">Expected per trade</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Trade Breakdown</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-green-600">Wins:</span>
-                <span className="font-semibold">{stats.winningTrades || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-red-600">Losses:</span>
-                <span className="font-semibold">{stats.losingTrades || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Break Even:</span>
-                <span className="font-semibold">{stats.breakEvenTrades || 0}</span>
-              </div>
+            <div className="flex items-center space-x-4">
+              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <Plus className="w-4 h-4" />
+                Import Trades
+              </button>
+              <button className="p-2 rounded-lg hover:bg-gray-100">
+                <Settings className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Add New Trade Form */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h3 className="text-lg font-semibold mb-4">Add New Trade</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <input
-              type="text"
-              placeholder="Symbol (e.g., AAPL)"
-              value={newTrade.symbol}
-              onChange={(e) => setNewTrade({...newTrade, symbol: e.target.value.toUpperCase()})}
-              className="border rounded px-3 py-2"
-            />
-            <select
-              value={newTrade.type}
-              onChange={(e) => setNewTrade({...newTrade, type: e.target.value})}
-              className="border rounded px-3 py-2"
-            >
-              <option value="long">Long</option>
-              <option value="short">Short</option>
-            </select>
-            <input
-              type="number"
-              step="0.01"
-              placeholder="Entry Price"
-              value={newTrade.entry}
-              onChange={(e) => setNewTrade({...newTrade, entry: e.target.value})}
-              className="border rounded px-3 py-2"
-            />
-            <input
-              type="number"
-              step="0.01"
-              placeholder="Exit Price (optional)"
-              value={newTrade.exit}
-              onChange={(e) => setNewTrade({...newTrade, exit: e.target.value})}
-              className="border rounded px-3 py-2"
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-            <input
-              type="number"
-              placeholder="Quantity"
-              value={newTrade.quantity}
-              onChange={(e) => setNewTrade({...newTrade, quantity: e.target.value})}
-              className="border rounded px-3 py-2"
-            />
-            <input
-              type="date"
-              value={newTrade.date}
-              onChange={(e) => setNewTrade({...newTrade, date: e.target.value})}
-              className="border rounded px-3 py-2"
-            />
-            <input
-              type="number"
-              step="0.01"
-              placeholder="Stop Loss (optional)"
-              value={newTrade.stopLoss}
-              onChange={(e) => setNewTrade({...newTrade, stopLoss: e.target.value})}
-              className="border rounded px-3 py-2"
-            />
-            <button
-              onClick={addTrade}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Add Trade
-            </button>
-          </div>
-        </div>
-
-        {/* Recent Trades Table */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">Recent Trades</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full table-auto">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Symbol</th>
-                  <th className="px-4 py-2 text-left">Type</th>
-                  <th className="px-4 py-2 text-left">Entry</th>
-                  <th className="px-4 py-2 text-left">Exit</th>
-                  <th className="px-4 py-2 text-left">Qty</th>
-                  <th className="px-4 py-2 text-left">Net P&L</th>
-                  <th className="px-4 py-2 text-left">Hold Time</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trades.slice().reverse().map((trade) => (
-                  <tr key={trade.id} className="border-t">
-                    <td className="px-4 py-2">{trade.date}</td>
-                    <td className="px-4 py-2 font-semibold">{trade.symbol}</td>
-                    <td className="px-4 py-2">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        trade.type === 'long' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {trade.type.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">${trade.entry.toFixed(2)}</td>
-                    <td className="px-4 py-2">{trade.exit ? `$${trade.exit.toFixed(2)}` : '-'}</td>
-                    <td className="px-4 py-2">{trade.quantity}</td>
-                    <td className={`px-4 py-2 font-semibold ${
-                      trade.netPnl > 0 ? 'text-green-600' : trade.netPnl < 0 ? 'text-red-600' : 'text-gray-600'
-                    }`}>
-                      {formatCurrency(trade.netPnl)}
-                    </td>
-                    <td className="px-4 py-2">{trade.holdTime}</td>
-                    <td className="px-4 py-2">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        trade.status === 'closed' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {trade.status.toUpperCase()}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Additional Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Performance Summary</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span>Largest Win:</span>
-                <span className="font-semibold text-green-600">{formatCurrency(stats.largestWin || 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Largest Loss:</span>
-                <span className="font-semibold text-red-600">{formatCurrency(stats.largestLoss || 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Total Commissions:</span>
-                <span className="font-semibold">{formatCurrency(stats.totalCommissions || 0)}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Trading Activity</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span>Total Trades:</span>
-                <span className="font-semibold">{stats.totalTrades || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Open Positions:</span>
-                <span className="font-semibold">{trades.filter(t => t.status === 'open').length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Average Trade:</span>
-                <span className="font-semibold">{formatCurrency(stats.expectancy || 0)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4">Risk Metrics</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span>Profit Factor:</span>
-                <span className="font-semibold">{(stats.profitFactor || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Win Rate:</span>
-                <span className="font-semibold">{formatPercentage(stats.winRate || 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Risk/Reward:</span>
-                <span className="font-semibold">{stats.avgLoss > 0 ? (stats.avgWin / stats.avgLoss).toFixed(2) : 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'dashboard' ? <DashboardView /> : <ReportsView />}
+      </main>
     </div>
   );
 };
 
-export default TastyTradeJournal;
+export default TradingJournal;
